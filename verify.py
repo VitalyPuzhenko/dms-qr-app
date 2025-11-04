@@ -63,4 +63,4 @@ if "doc" in query_params:
         st.error("❌ Документ не знайдено у журналі.")
 else:
     st.write("Використайте посилання з QR-коду:")
-    st.code(f"{BASE_URL}/?doc=<a6cbe37b-1ba4-4050-84a3-6eff34719b83>")
+    st.code(f"{BASE_URL}/?doc=a6cbe37b-1ba4-4050-84a3-6eff34719b83")
