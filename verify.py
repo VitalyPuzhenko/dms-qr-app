@@ -7,33 +7,44 @@ from googleapiclient.discovery import build
 SPREADSHEET_ID = st.secrets.get("SPREADSHEET_ID", "")
 SHEET_RANGE = st.secrets.get("SHEET_RANGE", "A1:E1")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+BASE_URL = "https://vitalypuzhenko-dms-qr-app.streamlit.app"
+
+# --- Зчитування GOOGLE_CREDENTIALS із secrets (будь-який формат) ---
 SERVICE_ACCOUNT_INFO = None
 if "GOOGLE_CREDENTIALS" in st.secrets:
     SERVICE_ACCOUNT_INFO = st.secrets["GOOGLE_CREDENTIALS"]
 elif "general" in st.secrets and "GOOGLE_CREDENTIALS" in st.secrets["general"]:
     SERVICE_ACCOUNT_INFO = st.secrets["general"]["GOOGLE_CREDENTIALS"]
 else:
-    st.error("❌ Не знайдено GOOGLE_CREDENTIALS у Streamlit secrets.")
+    st.error("❌ Не знайдено GOOGLE_CREDENTIALS у Streamlit secrets. Перевір secrets.toml.")
     st.stop()
-BASE_URL = "https://vitalypuzhenko-dms-qr-app.streamlit.app"
 
 # ---------------- GOOGLE SHEETS ----------------
 @st.cache_resource
 def get_gsheets_service():
-    """Повертає об'єкт сервісу Google Sheets."""
+    """Повертає підключення до Google Sheets API."""
     info = SERVICE_ACCOUNT_INFO
+
+    # Якщо credentials у вигляді рядка — парсимо JSON
     if isinstance(info, str):
         try:
             info = json.loads(info)
         except json.JSONDecodeError:
-            st.error("❌ Некоректний формат GOOGLE_CREDENTIALS у Secrets.")
+            st.error("❌ GOOGLE_CREDENTIALS у secrets має некоректний JSON формат.")
             st.stop()
 
+    # Перевіряємо що це dict
+    if not isinstance(info, dict):
+        st.error("❌ GOOGLE_CREDENTIALS не є словником. Перевір secrets.")
+        st.stop()
+
+    # Пробуємо створити клієнт
     try:
         creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
-        return build("sheets", "v4", credentials=creds)
+        service = build("sheets", "v4", credentials=creds)
+        return service
     except Exception as e:
-        st.error(f"Помилка підключення до Google Sheets: {e}")
+        st.error(f"❌ Помилка підключення до Google Sheets API: {e}")
         st.stop()
 
 # ---------------- PAGE CONFIG ----------------
@@ -61,22 +72,24 @@ if "doc" in query_params:
     try:
         service = get_gsheets_service()
         result = service.spreadsheets().values().get(
-            spreadsheetId=SPREADSHEET_ID, range=SHEET_RANGE
+            spreadsheetId=SPREADSHEET_ID,
+            range=SHEET_RANGE
         ).execute()
         rows = result.get("values", [])
     except Exception as e:
         st.error(f"❌ Не вдалося отримати дані з Google Sheets: {e}")
         st.stop()
 
-    match = next((r for r in rows if r and r[0] == doc_id), None)
+    # Пошук документа по ID
+    match = next((r for r in rows if r and len(r) > 0 and r[0] == doc_id), None)
 
     if match:
-        st.success("✅ Документ підтверджено в журналі підписів")
-        st.markdown("### 📄 Реквізити")
+        st.success("✅ Документ підтверджено у журналі підписів")
+        st.markdown("### 📄 Реквізити документа")
         st.write(f"**ID документа:** `{match[0]}`")
-        st.write(f"**Підписант:** {match[2]}`")
-        st.write(f"**Дата підпису:** {match[3]}")
-        st.write(f"**Хеш (SHA256):** `{match[1]}`")
+        st.write(f"**Підписант:** {match[2] if len(match) > 2 else '—'}`")
+        st.write(f"**Дата підпису:** {match[3] if len(match) > 3 else '—'}")
+        st.write(f"**Хеш (SHA256):** `{match[1] if len(match) > 1 else '—'}`")
 
         # QR повторної перевірки
         qr_buf = io.BytesIO()
