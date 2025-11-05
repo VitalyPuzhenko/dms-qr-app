@@ -7,7 +7,14 @@ from googleapiclient.discovery import build
 SPREADSHEET_ID = st.secrets.get("SPREADSHEET_ID", "")
 SHEET_RANGE = st.secrets.get("SHEET_RANGE", "A1:E1")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SERVICE_ACCOUNT_INFO = st.secrets.get("GOOGLE_CREDENTIALS", None)
+SERVICE_ACCOUNT_INFO = None
+if "GOOGLE_CREDENTIALS" in st.secrets:
+    SERVICE_ACCOUNT_INFO = st.secrets["GOOGLE_CREDENTIALS"]
+elif "general" in st.secrets and "GOOGLE_CREDENTIALS" in st.secrets["general"]:
+    SERVICE_ACCOUNT_INFO = st.secrets["general"]["GOOGLE_CREDENTIALS"]
+else:
+    st.error("❌ Не знайдено GOOGLE_CREDENTIALS у Streamlit secrets.")
+    st.stop()
 BASE_URL = "https://vitalypuzhenko-dms-qr-app.streamlit.app"
 
 # ---------------- GOOGLE SHEETS ----------------
